@@ -1,6 +1,11 @@
 package View;
 
 import javax.swing.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableModel;
 
@@ -17,7 +22,9 @@ import java.text.Normalizer;
 public class ReportView3 extends JFrame {
     private JTable table;
     private DefaultTableModel tableModel;
-    private JButton addButton, deleteButton, editButton;
+    private JButton addButton, deleteButton;
+    private Connection connection;
+    
 
     public ReportView3() {
         // Thiết lập tiêu đề và kích thước cửa sổ
@@ -88,7 +95,6 @@ public class ReportView3 extends JFrame {
                 
         buttonPanel.add(addButton);
         buttonPanel.add(deleteButton);
-        buttonPanel.add(editButton);
         buttonPanel.setPreferredSize(new Dimension(800, 35)); // Đặt chiều cao cố định
 
         // Bố trí bố cục chính
@@ -96,7 +102,8 @@ public class ReportView3 extends JFrame {
         getContentPane().add(buttonPanel, BorderLayout.NORTH); // Đặt các nút ở phía dưới và căn phải
         getContentPane().add(scrollPane, BorderLayout.CENTER); // Đặt bảng ở trung tâm
         
-        
+        connectDatabase();
+        loadData();
     }
 
     // Hàm sử dụng ClassLoader để tải và thay đổi kích thước icon
@@ -113,6 +120,51 @@ public class ReportView3 extends JFrame {
         
         // Tạo và trả về ImageIcon mới với kích thước đã điều chỉnh
         return new ImageIcon(resizedImage);
+    }
+
+    private void connectDatabase() {
+        try {
+            String url = "jdbc:mysql://localhost:3306/quanlynhansu"; // Đổi tên_csdl theo tên cơ sở dữ liệu của bạn
+            String user = "root"; // Tên người dùng MySQL
+            String password = "Hoang123"; // Mật khẩu MySQL
+            connection = DriverManager.getConnection(url, user, password);
+            System.out.println("Kết nối thành công!");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Không thể kết nối đến CSDL.");
+        }
+    }
+
+    private void loadData() {
+        try {
+            // Truy vấn SQL để lấy dữ liệu
+            String query = "SELECT MONTH(hire_date) AS month, " +
+                           "COUNT(*) AS total_employees, " +
+                           "SUM(CASE WHEN hire_date >= CURDATE() - INTERVAL 1 MONTH THEN 1 ELSE 0 END) AS new_employees, " +
+                           "SUM(CASE WHEN status = 'off' THEN 1 ELSE 0 END) AS resigned_employees " +
+                           "FROM employee " +
+                           "GROUP BY MONTH(hire_date)";
+                           
+            Statement stmt = connection.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+
+            // Xóa dữ liệu cũ trong bảng trước khi tải dữ liệu mới
+            tableModel.setRowCount(0);
+
+            // Lặp qua kết quả và thêm vào bảng
+            while (rs.next()) {
+                String month = rs.getString("month");
+                int totalEmployees = rs.getInt("total_employees");
+                int newEmployees = rs.getInt("new_employees");
+                int resignedEmployees = rs.getInt("resigned_employees");
+
+                // Thêm dòng vào bảng
+                tableModel.addRow(new Object[]{month, totalEmployees, newEmployees, resignedEmployees});
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Không thể tải dữ liệu.");
+        }
     }
 
     
